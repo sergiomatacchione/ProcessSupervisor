@@ -1,0 +1,20 @@
+# Build output
+bin/
+obj/
+.vs/
+
+# Runtime logs and generated data
+LOG/
+logs/
+*.log
+*.tmp
+
+# User-specific IDE files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# OS files
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "morti_di_sonno",
+    "name": "Morti di Sonno (Hub Ingestion)",
+    "executablePath": "C:\\DEV\\MortiDiSonno\\client\\src\\MortiDiSonno.UI\\bin\\Debug\\net10.0-windows\\MortiDiSonno.UI.exe",
+    "arguments": "",
+    "workingDirectory": "C:\\DEV\\MortiDiSonno",
+    "autoRestartOnCrash": true
+  },
+  {
+    "id": "organizer_app",
+    "name": "Organizer App (Life & Knowledge Graph)",
+    "executablePath": "C:\\DEV\\OrganizerApp\\OrganizerApp\\bin\\Debug\\net8.0-windows\\OrganizerApp.exe",
+    "arguments": "",
+    "workingDirectory": "C:\\DEV\\OrganizerApp",
+    "autoRestartOnCrash": false
+  },
+  {
+    "id": "mail_mind",
+    "name": "MailMind (Task Hub)",
+    "executablePath": "C:\\DEV\\MailMind-Solution\\src\\MailMind.Server.Api\\bin\\Debug\\net8.0\\MailMind.Server.Api.exe",
+    "arguments": "",
+    "workingDirectory": "C:\\DEV\\MailMind-Solution",
+    "autoRestartOnCrash": false
+  }
+]

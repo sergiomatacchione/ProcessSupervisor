@@ -11,6 +11,7 @@ public partial class MainViewModel : ObservableObject
     private const int MaxLogEntries = 1000;
     private readonly AppLogger _logger = new();
     private readonly ProcessWatchdogService _service;
+    private readonly ExternalRequestService _requestService;
 
     public ObservableCollection<MonitoredProcess> Processes => _service.Processes;
     public ObservableCollection<string> LogEntries { get; } = new();
@@ -25,6 +26,8 @@ public partial class MainViewModel : ObservableObject
             while (LogEntries.Count > MaxLogEntries) LogEntries.RemoveAt(0);
         };
         _service.Start();
+        _requestService = new ExternalRequestService(_service, _logger);
+        _requestService.Start();
     }
 
     [RelayCommand]
@@ -59,9 +62,14 @@ public partial class MainViewModel : ObservableObject
 
     public List<AppProcessConfig> GetDefaultConfiguration() => _service.GetDefaultConfiguration();
 
-    public void SaveConfiguration(IEnumerable<AppProcessConfig> configs)
+    public RequestQueueSettings GetRequestQueueSettings() => _requestService.GetSettings();
+
+    public RequestQueueSettings GetDefaultRequestQueueSettings() => _requestService.GetDefaultSettings();
+
+    public void SaveConfiguration(IEnumerable<AppProcessConfig> configs, RequestQueueSettings requestSettings)
     {
         _logger.Log("Utente: salvataggio della configurazione");
+        _requestService.UpdateSettings(requestSettings);
         _service.SaveConfiguration(configs);
     }
 

@@ -8,6 +8,8 @@ LOG/
 logs/
 *.log
 *.tmp
+request_queue.json
+REQUESTS/
 
 # User-specific IDE files
 *.user

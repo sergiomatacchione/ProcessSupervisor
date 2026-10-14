@@ -106,6 +106,7 @@
                 </DataGridTemplateColumn>
 
                 <DataGridTextColumn Header="Applicazione" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="Istanza" Binding="{Binding InstanceLabel}" Width="105"/>
                 <DataGridTextColumn Header="Origine processo" Binding="{Binding OriginStatus}" Width="150"/>
                 <DataGridTextColumn Header="PID" Binding="{Binding Pid, TargetNullValue=—}" Width="70"/>
                 <DataGridTextColumn Header="Avvio"

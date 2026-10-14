@@ -14,21 +14,27 @@ public partial class ConfigEditorWindow : Window
 
     private readonly AppLogger _logger;
     private readonly IReadOnlyList<AppProcessConfig> _defaults;
-    private readonly Action<IReadOnlyList<AppProcessConfig>> _save;
+    private readonly RequestQueueSettings _defaultRequestSettings;
+    private readonly Action<IReadOnlyList<AppProcessConfig>, RequestQueueSettings> _save;
     private readonly ObservableCollection<AppProcessConfig> _configs;
 
     public ConfigEditorWindow(
         AppLogger logger,
         IEnumerable<AppProcessConfig> current,
         IEnumerable<AppProcessConfig> defaults,
-        Action<IReadOnlyList<AppProcessConfig>> save)
+        RequestQueueSettings requestSettings,
+        RequestQueueSettings defaultRequestSettings,
+        Action<IReadOnlyList<AppProcessConfig>, RequestQueueSettings> save)
     {
         InitializeComponent();
         _logger = logger;
         _defaults = defaults.Select(Clone).ToList();
+        _defaultRequestSettings = Clone(defaultRequestSettings);
         _save = save;
         _configs = new ObservableCollection<AppProcessConfig>(current.Select(Clone));
         DataContext = _configs;
+        InboxDirectoryBox.Text = requestSettings.InboxDirectory;
+        ProcessedDirectoryBox.Text = requestSettings.ProcessedDirectory;
     }
 
     private void Add_Click(object sender, RoutedEventArgs e)
@@ -90,6 +96,8 @@ public partial class ConfigEditorWindow : Window
         _configs.Clear();
         foreach (var config in _defaults)
             _configs.Add(Clone(config));
+        InboxDirectoryBox.Text = _defaultRequestSettings.InboxDirectory;
+        ProcessedDirectoryBox.Text = _defaultRequestSettings.ProcessedDirectory;
         _logger.Log("Utente: ripristinati i valori predefiniti nell'editor");
     }
 
@@ -99,6 +107,20 @@ public partial class ConfigEditorWindow : Window
         ConfigGrid.CommitEdit();
 
         var errors = Validate();
+        var requestSettings = new RequestQueueSettings
+        {
+            InboxDirectory = InboxDirectoryBox.Text.Trim(),
+            ProcessedDirectory = ProcessedDirectoryBox.Text.Trim()
+        };
+        try
+        {
+            RequestQueueSettingsStore.Validate(requestSettings);
+        }
+        catch (Exception ex)
+        {
+            errors.Add(ex.Message);
+        }
+
         if (errors.Count > 0)
         {
             MessageBox.Show(this, string.Join(Environment.NewLine, errors), "Configurazione non valida",
@@ -109,7 +131,7 @@ public partial class ConfigEditorWindow : Window
 
         try
         {
-            _save(_configs.Select(Clone).ToList());
+            _save(_configs.Select(Clone).ToList(), requestSettings);
             DialogResult = true;
             Close();
         }
@@ -163,5 +185,11 @@ public partial class ConfigEditorWindow : Window
         Arguments = config.Arguments,
         WorkingDirectory = config.WorkingDirectory,
         AutoRestartOnCrash = config.AutoRestartOnCrash
+    };
+
+    private static RequestQueueSettings Clone(RequestQueueSettings requestSettings) => new()
+    {
+        InboxDirectory = requestSettings.InboxDirectory,
+        ProcessedDirectory = requestSettings.ProcessedDirectory
     };
 }

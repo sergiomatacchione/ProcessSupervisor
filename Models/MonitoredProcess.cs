@@ -9,13 +9,19 @@ public enum ProcessStatus { Stopped, Starting, Running, Crashed }
 /// <summary>Stato a runtime di un processo monitorato.</summary>
 public partial class MonitoredProcess : ObservableObject
 {
-    public MonitoredProcess(AppProcessConfig config)
+    public MonitoredProcess(AppProcessConfig config, string? instanceLabel = null, bool isRequestInstance = false)
     {
-        Id = config.Id;
+        ConfigId = config.Id;
+        Id = instanceLabel is null ? config.Id : $"{config.Id}:{Guid.NewGuid():N}";
+        InstanceLabel = instanceLabel ?? "Monitoraggio";
+        IsRequestInstance = isRequestInstance;
         ApplyConfig(config);
     }
 
     public string Id { get; }
+    public string ConfigId { get; }
+    public string InstanceLabel { get; }
+    internal bool IsRequestInstance { get; }
 
     [ObservableProperty] private string _name = "";
     public string ExecutablePath { get; private set; } = "";

@@ -32,6 +32,8 @@ public partial class MainWindow : Window
                 vm.Logger,
                 vm.GetConfiguration(),
                 vm.GetDefaultConfiguration(),
+                vm.GetRequestQueueSettings(),
+                vm.GetDefaultRequestQueueSettings(),
                 vm.SaveConfiguration)
             {
                 Owner = this

@@ -35,6 +35,53 @@ public sealed class ProcessWatchdogService
 
     public List<AppProcessConfig> GetDefaultConfiguration() => _configuration.LoadDefaults();
 
+    public AppProcessConfig? FindConfiguredApplication(string id)
+    {
+        try
+        {
+            return _configuration.LoadCurrent().SingleOrDefault(config =>
+                string.Equals(config.Id, id, StringComparison.Ordinal));
+        }
+        catch (Exception ex)
+        {
+            _logger.Log($"Errore lettura configurazione per richiesta esterna: {ex.Message}");
+            return null;
+        }
+    }
+
+    public bool StartFromRequest(string id, bool forceNewInstance)
+    {
+        var config = FindConfiguredApplication(id);
+        if (config is null)
+        {
+            _logger.Log($"Richiesta rifiutata: ID non presente o non univoco nella configurazione ({id})");
+            return false;
+        }
+
+        var primary = Processes.FirstOrDefault(process =>
+            process.ConfigId == config.Id && !process.IsRequestInstance);
+        if (primary is null)
+        {
+            primary = new MonitoredProcess(config);
+            Processes.Add(primary);
+        }
+
+        var active = Processes.Where(process => process.ConfigId == config.Id && process.IsActive).ToList();
+        if (active.Count > 0 && !forceNewInstance)
+        {
+            _logger.Log($"Richiesta per {config.Name} ignorata: processo già attivo (PID: {string.Join(", ", active.Select(process => process.Pid))})");
+            return false;
+        }
+
+        var target = active.Count > 0
+            ? new MonitoredProcess(config, $"Richiesta #{Processes.Count(process => process.ConfigId == config.Id) + 1}", true)
+            : primary;
+        if (target != primary)
+            Processes.Add(target);
+
+        return Start(target);
+    }
+
     public void SaveConfiguration(IEnumerable<AppProcessConfig> configs)
     {
         _configuration.Save(configs);
@@ -54,7 +101,7 @@ public sealed class ProcessWatchdogService
             return;
         }
 
-        foreach (var gone in Processes.Where(p => configs.All(c => c.Id != p.Id)).ToList())
+        foreach (var gone in Processes.Where(p => configs.All(c => c.Id != p.ConfigId)).ToList())
         {
             gone.RestartPending = false;
             Processes.Remove(gone);
@@ -63,10 +110,11 @@ public sealed class ProcessWatchdogService
 
         foreach (var cfg in configs)
         {
-            var existing = Processes.FirstOrDefault(p => p.Id == cfg.Id);
-            if (existing != null)
+            var existing = Processes.Where(p => p.ConfigId == cfg.Id).ToList();
+            if (existing.Count > 0)
             {
-                existing.ApplyConfig(cfg);
+                foreach (var process in existing)
+                    process.ApplyConfig(cfg);
                 continue;
             }
 
@@ -218,10 +266,10 @@ public sealed class ProcessWatchdogService
             $"Rilevato {monitored.Name} già attivo (PID: {process.Id}; {monitored.OriginStatus}: {observedPath})");
     }
 
-    public void Start(MonitoredProcess monitored)
+    public bool Start(MonitoredProcess monitored)
     {
         if (monitored.IsActive)
-            return;
+            return false;
 
         monitored.StopRequested = false;
         monitored.RestartPending = false;
@@ -239,7 +287,8 @@ public sealed class ProcessWatchdogService
             monitored.StopTime = null;
             monitored.SetObservedPath(monitored.ExecutablePath);
             monitored.Status = ProcessStatus.Running;
-            _logger.Log($"Avviato {monitored.Name} (PID: {process.Id}; percorso configurato)");
+            _logger.Log($"Avviato {monitored.Name} [{monitored.InstanceLabel}] (PID: {process.Id}; percorso configurato)");
+            return true;
         }
         catch (Exception ex)
         {
@@ -247,6 +296,7 @@ public sealed class ProcessWatchdogService
             monitored.Pid = null;
             monitored.Status = ProcessStatus.Stopped;
             _logger.Log($"Impossibile avviare {monitored.Name}: {ex.Message}");
+            return false;
         }
     }
 
@@ -333,7 +383,7 @@ public sealed class ProcessWatchdogService
         monitored.Status = ProcessStatus.Stopped;
         monitored.OriginStatus = "Non in esecuzione";
         monitored.StopRequested = false;
-        _logger.Log($"Fermato {monitored.Name} (PID: {pid})");
+        _logger.Log($"Fermato {monitored.Name} [{monitored.InstanceLabel}] (PID: {pid})");
     }
 
     public async Task RestartAsync(MonitoredProcess monitored)
@@ -376,7 +426,7 @@ public sealed class ProcessWatchdogService
                 continue;
             }
 
-            if (!monitored.RestartPending)
+            if (!monitored.RestartPending && !monitored.IsRequestInstance)
                 TryAttachExisting(monitored);
             monitored.RefreshUptime();
         }
@@ -409,7 +459,7 @@ public sealed class ProcessWatchdogService
         if (monitored.Status == ProcessStatus.Crashed)
         {
             _logger.Log(
-                $"Crash di {monitored.Name} (ExitCode: {(exitCode?.ToString() ?? "n/d")})");
+                $"Crash di {monitored.Name} [{monitored.InstanceLabel}] (ExitCode: {(exitCode?.ToString() ?? "n/d")})");
             if (monitored.AutoRestartOnCrash)
             {
                 monitored.RestartPending = true;
@@ -419,7 +469,7 @@ public sealed class ProcessWatchdogService
         }
         else
         {
-            _logger.Log($"Interruzione di {monitored.Name} (ExitCode: 0)");
+            _logger.Log($"Interruzione di {monitored.Name} [{monitored.InstanceLabel}] (ExitCode: 0)");
         }
     }
 
